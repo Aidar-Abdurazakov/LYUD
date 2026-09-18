@@ -1,0 +1,25 @@
+# Виртуальное окружение
+venv/
+ENV/
+env/
+
+# Локальная база данных SQLite
+*.sqlite3
+db.sqlite3
+
+# Загружаемые медиафайлы и статика
+media/
+staticfiles/
+
+# Байткод Python и кэш
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Настройки VS Code и ОС
+.vscode/
+.DS_Store
+*.swp
+
+# Переменные окружения и секреты
+.env

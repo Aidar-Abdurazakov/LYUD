@@ -1,0 +1,24 @@
+{% extends 'posts/base.html' %}
+
+{% block content %}
+<div style="max-width: 500px; margin: 40px auto; padding: 20px; background: #121212; border-radius: 12px; border: 1px solid #262626; color: #fff;">
+    <h2>Редактировать профиль</h2>
+    <form method="post" enctype="multipart/form-data" style="margin-top: 20px;">
+        {% csrf_token %}
+        
+        <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 5px;">Аватарка:</label>
+            <input type="file" name="avatar" accept="image/*" style="color: #ccc;">
+        </div>
+
+        <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 5px;">О себе (Bio):</label>
+            <textarea name="bio" rows="4" style="width: 100%; background: #262626; color: #fff; border: 1px solid #363636; border-radius: 8px; padding: 10px;">{{ profile.bio }}</textarea>
+        </div>
+
+        <button type="submit" style="padding: 10px 20px; background: #0095f6; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+            Сохранить
+        </button>
+    </form>
+</div>
+{% endblock %}

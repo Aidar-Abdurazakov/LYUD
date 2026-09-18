@@ -1,0 +1,48 @@
+{% extends 'posts/base.html' %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto;">
+    <h2 style="color: #fff; margin-bottom: 20px;">Уведомления</h2>
+
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+        {% for notification in notifications %}
+            <div style="display: flex; align-items: center; justify-content: space-between; background: var(--card-bg-color); border: 1px solid var(--border-color); padding: 12px 16px; border-radius: 8px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <a href="{% url 'user_profile' notification.sender.username %}">
+                        {% if notification.sender.profile.avatar %}
+                            <img src="{{ notification.sender.profile.avatar.url }}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+                        {% else %}
+                            <div style="width: 40px; height: 40px; border-radius: 50%; background: #333; display: flex; align-items: center; justify-content: center; color: #fff;">
+                                {{ notification.sender.username|slice:":1"|upper }}
+                            </div>
+                        {% endif %}
+                    </a>
+                    <div style="font-size: 14px; color: #fff;">
+                        <strong><a href="{% url 'user_profile' notification.sender.username %}" style="color: #fff; text-decoration: none;">{{ notification.sender.username }}</a></strong>
+                        {% if notification.notification_type == 'like' %}
+                            поставил(а) лайк вашему посту.
+                        {% elif notification.notification_type == 'comment' %}
+                            оставил(а) комментарий к вашему посту.
+                        {% elif notification.notification_type == 'follow' %}
+                            подписался(лась) на вас.
+                        {% endif %}
+                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                            {{ notification.created_at|timesince }} назад
+                        </div>
+                    </div>
+                </div>
+
+                {% if notification.post %}
+                    {% if notification.post.media %}
+                        <img src="{{ notification.post.media.url }}" style="width: 40px; height: 40px; border-radius: 4px; object-fit: cover;">
+                    {% endif %}
+                {% endif %}
+            </div>
+        {% empty %}
+            <div style="text-align: center; color: var(--text-muted); padding: 40px 0;">
+                У вас пока нет новых уведомлений
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends 'posts/base.html' %}
+{% block content %}
+<div class="max-w-md mx-auto mt-4 p-3 border border-secondary rounded">
+    <h3 class="mb-3">Регистрация</h3>
+    
+    {% if error %}
+        <div class="alert alert-danger text-danger fw-bold p-2 mb-3 border border-danger rounded" style="background: rgba(255,0,0,0.1);">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    <form method="POST">
+        {% csrf_token %}
+        <input type="text" name="username" class="form-control bg-dark text-white mb-2" placeholder="Логин (Имя пользователя)" required>
+        <input type="email" name="email" class="form-control bg-dark text-white mb-2" placeholder="Email (необязательно)">
+        <input type="text" name="phone" class="form-control bg-dark text-white mb-2" placeholder="Номер телефона (необязательно)">
+        <input type="password" name="password" class="form-control bg-dark text-white mb-3" placeholder="Пароль" required>
+        <button type="submit" class="btn btn-primary w-100">Зарегистрироваться</button>
+    </form>
+</div>
+{% endblock %}

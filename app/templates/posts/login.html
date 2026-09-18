@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход / Регистрация</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #fafafa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .auth-container {
+            background: #ffffff;
+            border: 1px solid #dbdbdb;
+            border-radius: 12px;
+            padding: 30px 25px;
+            width: 100%;
+            max-width: 360px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Иконка логотипа */
+        .icon-box {
+            margin-bottom: 15px;
+            display: inline-block;
+            background: #f0f2f5;
+            padding: 15px;
+            border-radius: 50%;
+        }
+
+        .icon-box svg {
+            width: 40px;
+            height: 40px;
+            fill: #0095f6;
+        }
+
+        /* Табы переключения */
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #dbdbdb;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: none;
+            font-size: 15px;
+            font-weight: 600;
+            color: #8e8e8e;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .tab-btn.active {
+            color: #0095f6;
+            border-bottom: 2px solid #0095f6;
+        }
+
+        /* Сообщение об ошибке */
+        .error-message {
+            background-color: #ffebe9;
+            color: #d93025;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            margin-bottom: 15px;
+        }
+
+        /* Поля ввода */
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #dbdbdb;
+            border-radius: 6px;
+            background: #fafafa;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .form-group input:focus {
+            border-color: #a8a8a8;
+        }
+
+        /* Кнопка */
+        .submit-btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #0095f6;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+
+        .submit-btn:hover {
+            background-color: #1877f2;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="auth-container">
+    <!-- Иконка приложения -->
+    <div class="icon-box">
+        <svg viewBox="0 0 24 24">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+    </div>
+
+    <!-- Переключатель: Есть аккаунт / Создать аккаунт -->
+    <div class="tabs">
+        <button type="button" class="tab-btn {% if active_tab != 'register' %}active{% endif %}" onclick="switchTab('login')">Вход</button>
+        <button type="button" class="tab-btn {% if active_tab == 'register' %}active{% endif %}" onclick="switchTab('register')">Регистрация</button>
+    </div>
+
+    {% if error %}
+        <div class="error-message">{{ error }}</div>
+    {% endif %}
+
+    <!-- Форма Входа -->
+    <form id="login-form" method="post" class="{% if active_tab == 'register' %}hidden{% endif %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="login">
+        <div class="form-group">
+            <input type="text" name="username" placeholder="Имя пользователя" required>
+        </div>
+        <div class="form-group">
+            <input type="password" name="password" placeholder="Пароль" required>
+        </div>
+        <button type="submit" class="submit-btn">Войти</button>
+    </form>
+
+    <!-- Форма Регистрации -->
+    <form id="register-form" method="post" class="{% if active_tab != 'register' %}hidden{% endif %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="register">
+        <div class="form-group">
+            <input type="text" name="username" placeholder="Придумайте имя пользователя" required>
+        </div>
+        <div class="form-group">
+            <input type="password" name="password" placeholder="Придумайте пароль" required>
+        </div>
+        <div class="form-group">
+            <input type="password" name="password_confirm" placeholder="Повторите пароль" required>
+        </div>
+        <button type="submit" class="submit-btn">Зарегистрироваться</button>
+    </form>
+</div>
+
+<script>
+    function switchTab(tab) {
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        const buttons = document.querySelectorAll('.tab-btn');
+
+        if (tab === 'login') {
+            loginForm.classList.remove('hidden');
+            registerForm.classList.add('hidden');
+            buttons[0].classList.add('active');
+            buttons[1].classList.remove('active');
+        } else {
+            loginForm.classList.add('hidden');
+            registerForm.classList.remove('hidden');
+            buttons[0].classList.remove('active');
+            buttons[1].classList.add('active');
+        }
+    }
+</script>
+
+</body>
+</html>

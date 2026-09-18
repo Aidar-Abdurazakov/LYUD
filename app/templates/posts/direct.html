@@ -1,0 +1,46 @@
+{% extends 'posts/base.html' %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 30px auto; display: flex; height: 75vh; border: 1px solid #262626; border-radius: 12px; background: #121212; color: #fff; overflow: hidden;">
+    <!-- Список диалогов -->
+    <div style="width: 30%; border-right: 1px solid #262626; padding: 15px; overflow-y: auto;">
+        <h3 style="margin-top: 0; border-bottom: 1px solid #262626; padding-bottom: 10px;">Сообщения</h3>
+        {% for user_item in dialog_users %}
+            <a href="{% url 'direct_dialog' user_item.username %}" style="display: block; padding: 10px; border-radius: 8px; text-decoration: none; color: #fff; background: {% if active_dialog_user == user_item %}#262626{% else %}transparent{% endif %}; margin-bottom: 5px;">
+                <strong>@{{ user_item.username }}</strong>
+            </a>
+        {% empty %}
+            <p style="font-size: 13px; color: #777;">Нет контактов. Подпишитесь на кого-нибудь!</p>
+        {% endfor %}
+    </div>
+
+    <!-- Окно чата -->
+    <div style="width: 70%; display: flex; flex-direction: column; justify-content: space-between;">
+        {% if active_dialog_user %}
+            <div style="padding: 15px; border-bottom: 1px solid #262626; font-weight: 600;">
+                Чат с {{ active_dialog_user.username }}
+            </div>
+
+            <div style="padding: 20px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+                {% for msg in messages_list %}
+                    <div style="max-width: 60%; padding: 10px 14px; border-radius: 12px; font-size: 14px; align-self: {% if msg.sender == user %}flex-end{% else %}flex-start{% endif %}; background: {% if msg.sender == user %}#0095f6{% else %}#262626{% endif %};">
+                        {{ msg.text }}
+                    </div>
+                {% empty %}
+                    <p style="text-align: center; color: #777;">Напишите первое сообщение...</p>
+                {% endfor %}
+            </div>
+
+            <form method="post" style="padding: 15px; border-top: 1px solid #262626; display: flex; gap: 10px;">
+                {% csrf_token %}
+                <input type="text" name="text" placeholder="Напишите сообщение..." style="flex-grow: 1; background: #262626; border: 1px solid #363636; color: #fff; padding: 10px; border-radius: 8px;" required>
+                <button type="submit" style="background: #0095f6; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600;">Отправить</button>
+            </form>
+        {% else %}
+            <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #777;">
+                Выберите диалог из списка слева
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

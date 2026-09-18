@@ -1,0 +1,77 @@
+{% extends 'posts/base.html' %}
+
+{% block content %}
+<div style="display: flex; flex-direction: column; gap: 20px;">
+    {% for post in posts %}
+        <div style="background: var(--card-bg-color); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
+            
+            <!-- Автор -->
+            <div style="padding: 12px; font-weight: 600;">
+                <a href="{% url 'user_profile' post.author.username %}" style="color: #fff; text-decoration: none;">
+                    {{ post.author.username }}
+                </a>
+            </div>
+
+            <!-- Медиа контент -->
+            {% if post.media %}
+                {% if post.media.url|lower|slice:'-4:' == '.mp4' %}
+                    <video src="{{ post.media.url }}" controls style="width: 100%; display: block;"></video>
+                {% else %}
+                    <img src="{{ post.media.url }}" style="width: 100%; display: block;" alt="Post media">
+                {% endif %}
+            {% endif %}
+
+            <!-- Панель действий: Лайк и Репост -->
+            <div style="padding: 12px; display: flex; align-items: center; gap: 16px;">
+                <a href="{% url 'toggle_like' post.id %}" style="color: #fff; text-decoration: none; font-size: 18px;">
+                    {% if request.user in post.likes.all %}
+                        ❤️
+                    {% else %}
+                        🤍
+                    {% endif %}
+                    <span style="font-size: 14px; margin-left: 4px;">{{ post.total_likes }}</span>
+                </a>
+
+                <a href="{% url 'repost_post' post.id %}" style="color: #fff; text-decoration: none; font-size: 18px;">
+                    🔄
+                    <span style="font-size: 14px; margin-left: 4px;">{{ post.total_reposts }}</span>
+                </a>
+            </div>
+
+            <!-- Текст публикации -->
+            {% if post.content %}
+                <div style="padding: 0 12px 12px 12px; font-size: 14px;">
+                    <strong>{{ post.author.username }}</strong> {{ post.content }}
+                </div>
+            {% endif %}
+
+            <!-- Блок комментариев -->
+            <div style="padding: 12px; border-top: 1px solid var(--border-color); background: rgba(255,255,255,0.02);">
+                {% for comment in post.comments.all %}
+                    <div style="font-size: 13px; margin-bottom: 4px;">
+                        <strong style="color: #fff;">{{ comment.author.username }}</strong> 
+                        <span style="color: var(--text-muted);">{{ comment.text }}</span>
+                    </div>
+                {% empty %}
+                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">Пока нет комментариев</div>
+                {% endfor %}
+
+                <!-- Форма отправки комментария -->
+                <form method="POST" action="{% url 'add_comment' post.id %}" style="display: flex; gap: 8px; margin-top: 8px;">
+                    {% csrf_token %}
+                    <input type="text" name="text" placeholder="Оставить комментарий..." required 
+                           style="flex: 1; background: #000; border: 1px solid var(--border-color); color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 13px;">
+                    <button type="submit" style="background: #262626; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                        Отправить
+                    </button>
+                </form>
+            </div>
+
+        </div>
+    {% empty %}
+        <div style="text-align: center; color: var(--text-muted); padding: 40px 0;">
+            Пока нет постов
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}
