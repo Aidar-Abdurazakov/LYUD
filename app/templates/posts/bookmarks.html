@@ -1,0 +1,5 @@
+{% extends 'posts/base.html' %}
+{% block content %}
+<style>.list{max-width:720px}.item{display:block;padding:17px;margin-bottom:10px;background:var(--surface);border:1px solid var(--border);border-radius:16px;color:var(--text);text-decoration:none}.author{color:var(--muted);font-size:13px}.empty{color:var(--muted);padding:40px;text-align:center}</style>
+<section class="list">{% for bookmark in bookmarks %}<a class="item" href="{% url 'post_detail' bookmark.post.id %}"><div class="author">{{ bookmark.post.author.username }}</div><div>{{ bookmark.post.content|truncatechars:220 }}</div></a>{% empty %}<div class="empty">Сохранённых публикаций пока нет.</div>{% endfor %}</section>
+{% endblock %}

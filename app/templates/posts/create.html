@@ -1,40 +1,5 @@
 {% extends 'posts/base.html' %}
-
-
 {% block content %}
-<div style="max-width: 500px; margin: 0 auto; background: var(--card-bg-color); border: 1px solid var(--border-color); padding: 24px; border-radius: 12px;">
-    <h2 style="color: #fff; margin-top: 0; margin-bottom: 20px; text-align: center;">Создать публикацию</h2>
-
-    <form method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 16px;">
-        {% csrf_token %}
-
-        <!-- Описание поста -->
-        <div>
-            <label style="display: block; color: var(--text-muted); font-size: 13px; margin-bottom: 6px;">Описание</label>
-            <textarea name="content" rows="4" placeholder="Напишите подпись..." required
-                      style="width: 100%; background: #121212; border: 1px solid var(--border-color); color: #fff; padding: 10px; border-radius: 8px; resize: none; font-size: 14px; outline: none;"></textarea>
-        </div>
-
-        <!-- Загрузка файла -->
-        <div>
-            <label style="display: block; color: var(--text-muted); font-size: 13px; margin-bottom: 6px;">Фото или видео</label>
-            <input type="file" name="media" accept="image/*,video/*" required
-                   style="width: 100%; color: #fff; font-size: 14px;">
-        </div>
-
-        <!-- Тип контента -->
-        <div>
-            <label style="display: block; color: var(--text-muted); font-size: 13px; margin-bottom: 6px;">Формат</label>
-            <select name="post_type" style="width: 100%; background: #121212; border: 1px solid var(--border-color); color: #fff; padding: 10px; border-radius: 8px; font-size: 14px; outline: none;">
-                <option value="post">Обычный пост</option>
-                <option value="reels">Reels (видео)</option>
-            </select>
-        </div>
-
-        <!-- Кнопка отправить -->
-        <button type="submit" style="background: #0095f6; color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; margin-top: 10px;">
-            Опубликовать
-        </button>
-    </form>
-</div>
+<style>.composer{max-width:720px;padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:18px}.composer label{display:block;margin:0 0 8px;font-size:13px;color:var(--muted)}.composer select,.composer textarea,.composer input{width:100%;margin-bottom:16px;padding:12px;background:#111310;color:var(--text);border:1px solid var(--border);border-radius:11px;font:inherit}.composer textarea{min-height:180px;resize:vertical}.composer button{padding:11px 18px;background:var(--accent);color:#151710;border:0;border-radius:10px;font-weight:850;cursor:pointer}</style>
+<form class="composer" method="post" enctype="multipart/form-data">{% csrf_token %}<label>Формат</label><select name="post_type"><option value="text">Ветка</option><option value="image">Фотография</option><option value="reels">Scene</option></select><label>Текст</label><textarea name="content" placeholder=""></textarea><label>Медиа</label><input type="file" name="media" accept="image/*,video/*"><button type="submit">Опубликовать</button></form>
 {% endblock %}

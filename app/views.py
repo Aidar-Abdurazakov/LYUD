@@ -1,217 +1,291 @@
-from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth import login, logout
-from django.contrib.auth.models import User
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q
-from .models import Post, Comment, Repost, Follow, Message, Profile, Notification
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.contrib.auth.models import User
+from django.db.models import Count, Q
+from django.http import HttpResponseForbidden, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
-# --- Лента ---
+from .models import Block, Bookmark, Comment, CreatorProfile, Follow, Message, Notification, Post, Profile, Report, Repost
+
+
+def _is_blocked(first, second):
+    return Block.objects.filter(Q(blocker=first, blocked=second) | Q(blocker=second, blocked=first)).exists()
+
+
+def _back(request, fallback='feed'):
+    return redirect(request.META.get('HTTP_REFERER') or fallback)
+
+
 def feed_view(request):
+    tab = request.GET.get('tab', 'for-you')
+    posts = Post.objects.filter(parent__isnull=True).select_related(
+        'author', 'author__profile', 'quote_post', 'quote_post__author'
+    ).prefetch_related('likes', 'comments', 'replies').annotate(reply_count=Count('replies'))
     if request.user.is_authenticated:
-        following_users = Follow.objects.filter(follower=request.user).values_list('user', flat=True)
-        posts = Post.objects.filter(
-            Q(author__in=following_users) | Q(author=request.user)
-        ).order_by('-created_at')
-    else:
-        posts = Post.objects.all().order_by('-created_at')
-        
-    return render(request, 'posts/feed.html', {'posts': posts})
+        Profile.objects.get_or_create(user=request.user)
+        CreatorProfile.objects.get_or_create(user=request.user)
+        blocked_ids = Block.objects.filter(blocker=request.user).values_list('blocked_id', flat=True)
+        posts = posts.exclude(author_id__in=blocked_ids)
+        if tab == 'following':
+            following = Follow.objects.filter(follower=request.user).values_list('user_id', flat=True)
+            posts = posts.filter(Q(author_id__in=following) | Q(author=request.user))
+    return render(request, 'posts/feed.html', {'posts': posts.order_by('-created_at'), 'active_tab': tab})
 
-# --- Профиль и редактирование ---
+
 @login_required
 def profile_view(request, username=None):
-    if username:
-        profile_user = get_object_or_404(User, username=username)
-    else:
-        profile_user = request.user
+    profile_user = get_object_or_404(User, username=username) if username else request.user
+    profile, _ = Profile.objects.get_or_create(user=profile_user)
+    is_owner = request.user == profile_user
+    is_following = Follow.objects.filter(user=profile_user, follower=request.user).exists()
+    is_blocked = not is_owner and _is_blocked(request.user, profile_user)
+    posts = Post.objects.filter(author=profile_user, parent__isnull=True).select_related('author').order_by('-created_at')
+    if profile.is_private and not (is_owner or is_following):
+        posts = Post.objects.none()
+    return render(request, 'posts/profile.html', {
+        'profile_user': profile_user, 'profile': profile, 'posts': posts,
+        'is_owner': is_owner, 'is_following': is_following, 'is_blocked': is_blocked,
+        'followers_count': profile_user.followers.count(), 'following_count': profile_user.following.count(),
+    })
 
-    posts = Post.objects.filter(author=profile_user).order_by('-created_at')
-    is_following = False
-    if request.user.is_authenticated and profile_user != request.user:
-        is_following = Follow.objects.filter(user=profile_user, follower=request.user).exists()
-
-    context = {
-        'profile_user': profile_user,
-        'posts': posts,
-        'is_following': is_following,
-        'followers_count': profile_user.followers.count(),
-        'following_count': profile_user.following.count(),
-    }
-    return render(request, 'posts/profile.html', context)
 
 @login_required
 def edit_profile_view(request):
     profile, _ = Profile.objects.get_or_create(user=request.user)
     if request.method == 'POST':
-        bio = request.POST.get('bio', '')
-        avatar = request.FILES.get('avatar')
-        
-        profile.bio = bio
-        if avatar:
-            profile.avatar = avatar
+        profile.bio = request.POST.get('bio', '').strip()
+        profile.is_private = request.POST.get('is_private') == 'on'
+        profile.allow_messages = request.POST.get('allow_messages') == 'on'
+        if request.FILES.get('avatar'):
+            profile.avatar = request.FILES['avatar']
         profile.save()
         return redirect('profile')
-        
     return render(request, 'posts/edit_profile.html', {'profile': profile})
 
-# --- Подписки ---
-@login_required
-def toggle_follow_view(request, username):
-    target_user = get_object_or_404(User, username=username)
-    if target_user != request.user:
-        follow_obj = Follow.objects.filter(user=target_user, follower=request.user).first()
-        if follow_obj:
-            follow_obj.delete()
-        else:
-            Follow.objects.create(user=target_user, follower=request.user)
-            Notification.objects.create(
-                recipient=target_user,
-                sender=request.user,
-                notification_type='follow'
-            )
-    return redirect(request.META.get('HTTP_REFERER', 'profile'))
 
-# --- Чат / Direct ---
+@login_required
+@require_POST
+def toggle_follow_view(request, username):
+    target = get_object_or_404(User, username=username)
+    if target != request.user and not _is_blocked(request.user, target):
+        follow, created = Follow.objects.get_or_create(user=target, follower=request.user)
+        if created:
+            Notification.objects.create(recipient=target, sender=request.user, notification_type='follow')
+        else:
+            follow.delete()
+    return _back(request, 'profile')
+
+
+@login_required
+@require_POST
+def toggle_block_view(request, username):
+    target = get_object_or_404(User, username=username)
+    if target != request.user:
+        block, created = Block.objects.get_or_create(blocker=request.user, blocked=target)
+        if created:
+            Follow.objects.filter(Q(user=target, follower=request.user) | Q(user=request.user, follower=target)).delete()
+        else:
+            block.delete()
+    return _back(request, 'profile')
+
+
 @login_required
 def direct_view(request, username=None):
-    following_users = User.objects.filter(followers__follower=request.user)
-    active_dialog_user = None
-    messages_list = []
-
-    if username:
-        active_dialog_user = get_object_or_404(User, username=username)
+    users = User.objects.filter(Q(followers__follower=request.user) | Q(following__user=request.user)).distinct()
+    active = get_object_or_404(User, username=username) if username else None
+    messages = []
+    if active:
+        profile, _ = Profile.objects.get_or_create(user=active)
+        if _is_blocked(request.user, active) or (not profile.allow_messages and active != request.user):
+            return HttpResponseForbidden('Этот пользователь не принимает сообщения.')
         if request.method == 'POST':
             text = request.POST.get('text', '').strip()
             if text:
-                Message.objects.create(
-                    sender=request.user,
-                    recipient=active_dialog_user,
-                    text=text
-                )
-                return redirect('direct_dialog', username=username)
+                Message.objects.create(sender=request.user, recipient=active, text=text)
+                return redirect('direct_dialog', username=active.username)
+        messages = Message.objects.filter(Q(sender=request.user, recipient=active) | Q(sender=active, recipient=request.user)).order_by('created_at')
+    return render(request, 'posts/direct.html', {'dialog_users': users, 'active_dialog_user': active, 'messages_list': messages})
 
-        messages_list = Message.objects.filter(
-            Q(sender=request.user, recipient=active_dialog_user) |
-            Q(sender=active_dialog_user, recipient=request.user)
-        ).order_by('created_at')
 
-    context = {
-        'dialog_users': following_users,
-        'active_dialog_user': active_dialog_user,
-        'messages_list': messages_list,
-    }
-    return render(request, 'posts/direct.html', context)
-
-# --- Посты и медиа ---
 def reels_view(request):
-    reels_posts = Post.objects.filter(post_type='reels').order_by('-created_at')
-    return render(request, 'posts/reels.html', {'posts': reels_posts})
+    posts = Post.objects.filter(post_type='reels', parent__isnull=True).select_related('author').order_by('-created_at')
+    return render(request, 'posts/reels.html', {'posts': posts})
+
 
 @login_required
 def create_post_view(request):
     if request.method == 'POST':
-        content = request.POST.get('content', '')
+        content = request.POST.get('content', '').strip()
         media = request.FILES.get('media')
-        post_type = request.POST.get('post_type', 'post')
-        
-        Post.objects.create(
-            author=request.user,
-            content=content,
-            media=media,
-            post_type=post_type
-        )
+        post_type = request.POST.get('post_type', 'text')
+        if post_type not in {'text', 'image', 'reels'}:
+            post_type = 'text'
+        if content or media:
+            Post.objects.create(author=request.user, content=content, media=media, post_type=post_type)
         return redirect('feed')
     return render(request, 'posts/create.html')
 
+
+def post_detail_view(request, post_id):
+    post = get_object_or_404(Post.objects.select_related('author', 'author__profile', 'quote_post', 'quote_post__author'), id=post_id)
+    root = post.parent or post
+    replies = Post.objects.filter(parent=root).select_related('author', 'author__profile').prefetch_related('likes').order_by('created_at')
+    return render(request, 'posts/thread.html', {'post': root, 'replies': replies})
+
+
 @login_required
+@require_POST
+def create_reply_view(request, post_id):
+    parent = get_object_or_404(Post, id=post_id)
+    content = request.POST.get('content', '').strip()
+    media = request.FILES.get('media')
+    if content or media:
+        Post.objects.create(author=request.user, parent=parent, content=content, media=media, post_type='image' if media else 'text')
+        if parent.author != request.user:
+            Notification.objects.create(recipient=parent.author, sender=request.user, notification_type='comment', post=parent)
+    return redirect('post_detail', post_id=parent.id)
+
+
+@login_required
+def quote_post_view(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
+    if request.method == 'POST':
+        content = request.POST.get('content', '').strip()
+        if content:
+            Post.objects.create(author=request.user, content=content, post_type='text', quote_post=post)
+            return redirect('feed')
+    return render(request, 'posts/quote.html', {'post': post})
+
+
+@login_required
+@require_POST
 def delete_post_view(request, post_id):
     post = get_object_or_404(Post, id=post_id)
     if post.author == request.user:
         post.delete()
-    return redirect(request.META.get('HTTP_REFERER', 'profile'))
+    return _back(request, 'profile')
 
-# --- Лайки, Комментарии, Репосты ---
+
 @login_required
+@require_POST
 def toggle_like_view(request, post_id):
     post = get_object_or_404(Post, id=post_id)
-    if request.user in post.likes.all():
+    if post.likes.filter(id=request.user.id).exists():
         post.likes.remove(request.user)
+        liked = False
     else:
         post.likes.add(request.user)
+        liked = True
         if post.author != request.user:
-            Notification.objects.create(
-                recipient=post.author,
-                sender=request.user,
-                notification_type='like',
-                post=post
-            )
-    return redirect(request.META.get('HTTP_REFERER', 'feed'))
+            Notification.objects.create(recipient=post.author, sender=request.user, notification_type='like', post=post)
+    return JsonResponse({'success': True, 'is_liked': liked, 'likes_count': post.likes.count()})
+
 
 @login_required
+@require_POST
+def toggle_bookmark_view(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
+    bookmark, created = Bookmark.objects.get_or_create(user=request.user, post=post)
+    if not created:
+        bookmark.delete()
+    return JsonResponse({'success': True, 'is_bookmarked': created})
+
+
+@login_required
+def bookmarks_view(request):
+    bookmarks = Bookmark.objects.filter(user=request.user).select_related('post', 'post__author')
+    return render(request, 'posts/bookmarks.html', {'bookmarks': bookmarks})
+
+
+@login_required
+@require_POST
 def add_comment_view(request, post_id):
-    if request.method == 'POST':
-        post = get_object_or_404(Post, id=post_id)
-        text = request.POST.get('text', '').strip()
-        if text:
-            Comment.objects.create(post=post, author=request.user, text=text)
-            if post.author != request.user:
-                Notification.objects.create(
-                    recipient=post.author,
-                    sender=request.user,
-                    notification_type='comment',
-                    post=post
-                )
-    return redirect(request.META.get('HTTP_REFERER', 'feed'))
+    post = get_object_or_404(Post, id=post_id)
+    text = request.POST.get('text', '').strip()
+    if text:
+        Comment.objects.create(post=post, author=request.user, text=text)
+        if post.author != request.user:
+            Notification.objects.create(recipient=post.author, sender=request.user, notification_type='comment', post=post)
+    return _back(request)
+
 
 @login_required
+@require_POST
 def repost_view(request, post_id):
     post = get_object_or_404(Post, id=post_id)
     repost, created = Repost.objects.get_or_create(post=post, user=request.user)
     if not created:
         repost.delete()
-    return redirect(request.META.get('HTTP_REFERER', 'feed'))
+    return _back(request)
 
-# --- Поиск и Уведомления ---
+
 @login_required
+@require_POST
+def report_post_view(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
+    reason = request.POST.get('reason', 'other')
+    if reason in dict(Report.REASONS):
+        Report.objects.get_or_create(reporter=request.user, post=post, defaults={'reason': reason})
+    return _back(request)
+
+
+@login_required
+def studio_view(request):
+    creator, _ = CreatorProfile.objects.get_or_create(user=request.user)
+    posts = Post.objects.filter(author=request.user, parent__isnull=True).prefetch_related('likes')
+    return render(request, 'posts/studio.html', {
+        'creator': creator, 'posts_count': posts.count(),
+        'total_likes': sum(post.likes.count() for post in posts),
+        'total_replies': Post.objects.filter(parent__author=request.user).count(),
+    })
+
+
+@login_required
+@require_POST
+def toggle_monetization_view(request):
+    creator, _ = CreatorProfile.objects.get_or_create(user=request.user)
+    creator.monetization_enabled = not creator.monetization_enabled
+    creator.save(update_fields=['monetization_enabled'])
+    return redirect('studio')
+
+
 def search_view(request):
     query = request.GET.get('q', '').strip()
-    users = []
+    users = User.objects.none()
+    posts = Post.objects.none()
     if query:
-        users = User.objects.filter(
-            Q(username__icontains=query) | Q(first_name__icontains=query)
-        ).exclude(id=request.user.id)
-    return render(request, 'posts/search.html', {'users': users, 'query': query})
+        users = User.objects.filter(Q(username__icontains=query) | Q(first_name__icontains=query))[:20]
+        posts = Post.objects.filter(parent__isnull=True, content__icontains=query).select_related('author')[:30]
+    return render(request, 'posts/search.html', {'users': users, 'posts': posts, 'query': query})
+
 
 @login_required
 def notifications_view(request):
-    notifications = request.user.notifications.all()
+    notifications = request.user.notifications.select_related('sender', 'post')
     notifications.filter(is_read=False).update(is_read=True)
     return render(request, 'posts/notifications.html', {'notifications': notifications})
 
-# --- Авторизация ---
+
 def login_view(request):
-    if request.method == 'POST':
-        form = AuthenticationForm(request, data=request.POST)
-        if form.is_valid():
-            user = form.get_user()
-            login(request, user)
-            next_url = request.GET.get('next', 'feed')
-            return redirect(next_url)
-    else:
-        form = AuthenticationForm()
+    form = AuthenticationForm(request, data=request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        login(request, form.get_user())
+        return redirect(request.GET.get('next') or 'feed')
     return render(request, 'posts/login.html', {'form': form})
 
+
 def register_view(request):
-    if request.method == 'POST':
-        form = UserCreationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            login(request, user)
-            return redirect('feed')
-    else:
-        form = UserCreationForm()
+    form = UserCreationForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        user = form.save()
+        Profile.objects.get_or_create(user=user)
+        CreatorProfile.objects.get_or_create(user=user)
+        login(request, user)
+        return redirect('feed')
     return render(request, 'posts/register.html', {'form': form})
+
 
 def logout_view(request):
     logout(request)

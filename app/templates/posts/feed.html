@@ -1,77 +1,422 @@
 {% extends 'posts/base.html' %}
 
 {% block content %}
-<div style="display: flex; flex-direction: column; gap: 20px;">
-    {% for post in posts %}
-        <div style="background: var(--card-bg-color); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
-            
-            <!-- Автор -->
-            <div style="padding: 12px; font-weight: 600;">
-                <a href="{% url 'user_profile' post.author.username %}" style="color: #fff; text-decoration: none;">
-                    {{ post.author.username }}
+<style>
+    .create-box {
+        display: flex;
+        gap: 13px;
+        margin-bottom: 18px;
+        padding: 16px;
+        background: rgba(25, 27, 24, 0.85);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+    }
+
+    .avatar,
+    .avatar-placeholder {
+        flex: 0 0 auto;
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+    }
+
+    .avatar {
+        object-fit: cover;
+    }
+
+    .avatar-placeholder {
+        display: grid;
+        place-items: center;
+        color: #151710;
+        background: var(--accent);
+        font-size: 15px;
+        font-weight: 900;
+    }
+
+    .create-content {
+        min-width: 0;
+        flex-grow: 1;
+    }
+
+    .create-field {
+        display: block;
+        padding: 4px 0 15px;
+        color: var(--muted);
+        font-size: 15px;
+        text-decoration: none;
+    }
+
+    .create-bottom {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        border-top: 1px solid var(--border);
+        padding-top: 11px;
+    }
+
+    .create-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 8px 12px;
+        color: #151710;
+        background: var(--accent);
+        border-radius: 10px;
+        font-size: 12px;
+        font-weight: 850;
+        text-decoration: none;
+    }
+
+    .thread-card {
+        margin-bottom: 14px;
+        padding: 18px;
+        background: rgba(25, 27, 24, 0.92);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .thread-card:hover {
+        transform: translateY(-2px);
+        border-color: #576050;
+    }
+
+    .thread-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+
+    .thread-author {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        color: var(--text);
+        text-decoration: none;
+    }
+
+    .thread-author-data {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 0;
+    }
+
+    .thread-author-name {
+        overflow: hidden;
+        font-size: 14px;
+        font-weight: 800;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .thread-time {
+        color: var(--muted);
+        font-size: 12px;
+    }
+
+    .delete-post {
+        color: var(--muted);
+        text-decoration: none;
+        transition: color 0.2s ease;
+    }
+
+    .delete-post:hover {
+        color: var(--danger);
+    }
+
+    .thread-content {
+        margin: 0 0 14px;
+        color: #f3f4ef;
+        font-size: 16px;
+        line-height: 1.5;
+        white-space: pre-line;
+    }
+
+    .thread-media {
+        display: block;
+        width: 100%;
+        max-height: 560px;
+        margin-bottom: 15px;
+        object-fit: cover;
+        background: #0b0c0b;
+        border: 1px solid #2c302b;
+        border-radius: 14px;
+    }
+
+    .thread-actions {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding-top: 12px;
+        border-top: 1px solid var(--border);
+    }
+
+    .thread-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-width: 38px;
+        min-height: 36px;
+        padding: 8px 9px;
+        color: var(--muted);
+        background: transparent;
+        border: 0;
+        border-radius: 9px;
+        cursor: pointer;
+        font: inherit;
+        font-size: 13px;
+        text-decoration: none;
+        transition: 0.2s ease;
+    }
+
+    .thread-action:hover {
+        color: var(--text);
+        background: var(--surface-hover);
+    }
+
+    .thread-action.liked {
+        color: var(--danger);
+    }
+
+    .thread-action svg {
+        width: 19px;
+        height: 19px;
+    }
+
+    .thread-comments {
+        margin-top: 13px;
+    }
+
+    .comment {
+        margin: 0 0 7px 15px;
+        padding-left: 12px;
+        color: #d5d8d1;
+        border-left: 2px solid #495143;
+        font-size: 13px;
+        line-height: 1.45;
+    }
+
+    .comment strong {
+        color: var(--text);
+    }
+
+    .reply-form {
+        display: flex;
+        gap: 8px;
+        margin-top: 13px;
+    }
+
+    .reply-form input {
+        min-width: 0;
+        flex-grow: 1;
+        padding: 10px 12px;
+        color: var(--text);
+        outline: none;
+        background: #111310;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        font: inherit;
+        font-size: 13px;
+    }
+
+    .reply-form input:focus {
+        border-color: var(--accent);
+    }
+
+    .reply-form button {
+        padding: 10px 13px;
+        color: #151710;
+        background: var(--accent);
+        border: 0;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 800;
+    }
+
+    .empty-feed {
+        padding: 62px 20px;
+        color: var(--muted);
+        text-align: center;
+        background: var(--surface);
+        border: 1px dashed var(--border);
+        border-radius: 18px;
+    }
+
+    @media (max-width: 600px) {
+        .thread-card {
+            padding: 14px;
+            border-radius: 15px;
+        }
+
+        .thread-content {
+            font-size: 15px;
+        }
+    }
+</style>
+
+{% if user.is_authenticated %}
+    <section class="create-box">
+        {% if user.profile.avatar %}
+            <img src="{{ user.profile.avatar.url }}" class="avatar" alt="{{ user.username }}">
+        {% else %}
+            <div class="avatar-placeholder">{{ user.username|slice:":1"|upper }}</div>
+        {% endif %}
+
+        <div class="create-content">
+            <a href="{% url 'create' %}" class="create-field">Поделитесь чем-нибудь</a>
+
+            <div class="create-bottom">
+                <a href="{% url 'create' %}" class="create-button">
+                    <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+                    Создать
                 </a>
             </div>
+        </div>
+    </section>
+{% endif %}
 
-            <!-- Медиа контент -->
+<section>
+    {% for post in posts %}
+        <article class="thread-card" id="post-{{ post.id }}">
+            <div class="thread-head">
+                <a href="{% url 'user_profile' post.author.username %}" class="thread-author">
+                    {% if post.author.profile.avatar %}
+                        <img src="{{ post.author.profile.avatar.url }}" class="avatar" alt="{{ post.author.username }}">
+                    {% else %}
+                        <div class="avatar-placeholder">{{ post.author.username|slice:":1"|upper }}</div>
+                    {% endif %}
+
+                    <span class="thread-author-data">
+                        <span class="thread-author-name">{{ post.author.username }}</span>
+                        <span class="thread-time">{{ post.created_at|timesince }} назад</span>
+                    </span>
+                </a>
+
+                {% if post.author == user %}
+                    <form method="post" action="{% url 'delete_post' post.id %}" onsubmit="return confirm('Удалить публикацию?')">
+                        {% csrf_token %}
+                        <button class="delete-post" type="submit" title="Удалить"><i data-lucide="trash-2" style="width: 18px;"></i></button>
+                    </form>
+                {% endif %}
+            </div>
+
+            {% if post.content %}
+                <a href="{% url 'post_detail' post.id %}" style="color: inherit; text-decoration: none;"><p class="thread-content">{{ post.content }}</p></a>
+            {% endif %}
+
+            {% if post.quote_post %}
+                <a href="{% url 'post_detail' post.quote_post.id %}" style="display:block; padding:12px; margin:0 0 14px; color:var(--text); text-decoration:none; border:1px solid var(--border); border-radius:12px;">
+                    <strong>{{ post.quote_post.author.username }}</strong><br>{{ post.quote_post.content|truncatechars:160 }}
+                </a>
+            {% endif %}
+
             {% if post.media %}
-                {% if post.media.url|lower|slice:'-4:' == '.mp4' %}
-                    <video src="{{ post.media.url }}" controls style="width: 100%; display: block;"></video>
+                {% if post.post_type == 'reels' or post.media.url|lower|slice:'-4:' == '.mp4' %}
+                    <video class="thread-media" src="{{ post.media.url }}" controls playsinline></video>
                 {% else %}
-                    <img src="{{ post.media.url }}" style="width: 100%; display: block;" alt="Post media">
+                    <img class="thread-media" src="{{ post.media.url }}" alt="Публикация {{ post.author.username }}" loading="lazy">
                 {% endif %}
             {% endif %}
 
-            <!-- Панель действий: Лайк и Репост -->
-            <div style="padding: 12px; display: flex; align-items: center; gap: 16px;">
-                <a href="{% url 'toggle_like' post.id %}" style="color: #fff; text-decoration: none; font-size: 18px;">
-                    {% if request.user in post.likes.all %}
-                        ❤️
-                    {% else %}
-                        🤍
-                    {% endif %}
-                    <span style="font-size: 14px; margin-left: 4px;">{{ post.total_likes }}</span>
+            <div class="thread-actions">
+                <button
+                    type="button"
+                    class="thread-action like-button {% if user in post.likes.all %}liked{% endif %}"
+                    data-url="{% url 'toggle_like' post.id %}"
+                    title="Нравится"
+                    aria-label="Нравится"
+                >
+                    <i data-lucide="heart"></i>
+                    <span class="like-count">{{ post.total_likes }}</span>
+                </button>
+
+                <a
+                    class="thread-action"
+                    href="{% url 'post_detail' post.id %}"
+                    title="Ответить"
+                    aria-label="Ответить"
+                >
+                    <i data-lucide="message-circle"></i>
+                    <span>{{ post.reply_count }}</span>
                 </a>
 
-                <a href="{% url 'repost_post' post.id %}" style="color: #fff; text-decoration: none; font-size: 18px;">
-                    🔄
-                    <span style="font-size: 14px; margin-left: 4px;">{{ post.total_reposts }}</span>
+                <a
+                    href="{% url 'quote_post' post.id %}"
+                    class="thread-action"
+                    title="Поделиться"
+                    aria-label="Поделиться"
+                >
+                    <i data-lucide="repeat-2"></i>
                 </a>
+
+                <button
+                    type="button"
+                    class="thread-action bookmark-button"
+                    data-url="{% url 'toggle_bookmark' post.id %}"
+                    title="Сохранить"
+                    aria-label="Сохранить"
+                >
+                    <i data-lucide="bookmark"></i>
+                </button>
             </div>
 
-            <!-- Текст публикации -->
-            {% if post.content %}
-                <div style="padding: 0 12px 12px 12px; font-size: 14px;">
-                    <strong>{{ post.author.username }}</strong> {{ post.content }}
-                </div>
-            {% endif %}
-
-            <!-- Блок комментариев -->
-            <div style="padding: 12px; border-top: 1px solid var(--border-color); background: rgba(255,255,255,0.02);">
-                {% for comment in post.comments.all %}
-                    <div style="font-size: 13px; margin-bottom: 4px;">
-                        <strong style="color: #fff;">{{ comment.author.username }}</strong> 
-                        <span style="color: var(--text-muted);">{{ comment.text }}</span>
-                    </div>
-                {% empty %}
-                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">Пока нет комментариев</div>
-                {% endfor %}
-
-                <!-- Форма отправки комментария -->
-                <form method="POST" action="{% url 'add_comment' post.id %}" style="display: flex; gap: 8px; margin-top: 8px;">
-                    {% csrf_token %}
-                    <input type="text" name="text" placeholder="Оставить комментарий..." required 
-                           style="flex: 1; background: #000; border: 1px solid var(--border-color); color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 13px;">
-                    <button type="submit" style="background: #262626; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer;">
-                        Отправить
-                    </button>
-                </form>
-            </div>
-
-        </div>
+        </article>
     {% empty %}
-        <div style="text-align: center; color: var(--text-muted); padding: 40px 0;">
-            Пока нет постов
-        </div>
+        <div class="empty-feed">Пока нет публикаций.</div>
     {% endfor %}
-</div>
+</section>
+
+<script>
+    function getCookie(name) {
+        const cookies = document.cookie ? document.cookie.split(';') : [];
+
+        for (let cookie of cookies) {
+            cookie = cookie.trim();
+
+            if (cookie.startsWith(name + '=')) {
+                return decodeURIComponent(cookie.substring(name.length + 1));
+            }
+        }
+
+        return null;
+    }
+
+    document.querySelectorAll('.like-button').forEach((button) => {
+        button.addEventListener('click', async () => {
+            try {
+                const response = await fetch(button.dataset.url, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    button.classList.toggle('liked', data.is_liked);
+                    button.querySelector('.like-count').textContent = data.likes_count;
+                }
+            } catch (error) {
+                console.error('Ошибка лайка:', error);
+            }
+        });
+    });
+
+    document.querySelectorAll('.bookmark-button').forEach((button) => {
+        button.addEventListener('click', async () => {
+            const response = await fetch(button.dataset.url, {
+                method: 'POST',
+                headers: {'X-CSRFToken': getCookie('csrftoken')}
+            });
+            if (response.ok) button.classList.toggle('liked');
+        });
+    });
+</script>
 {% endblock %}

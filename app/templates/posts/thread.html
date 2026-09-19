@@ -1,0 +1,26 @@
+{% extends 'posts/base.html' %}
+{% block content %}
+<style>
+.thread { max-width: 720px; margin: 0 auto; }
+.thread-card, .reply { padding: 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; }
+.reply { margin: 12px 0 0 26px; border-left: 3px solid var(--accent); }
+.author { display:flex; gap:10px; align-items:center; color:var(--text); text-decoration:none; margin-bottom:14px; font-weight:800; }
+.avatar { width:40px; height:40px; display:grid; place-items:center; border-radius:50%; background:var(--accent); color:#13150f; }
+.date { color:var(--muted); font-size:12px; font-weight:400; }
+.content { white-space:pre-line; line-height:1.5; }
+.reply-form { display:grid; gap:10px; margin-top:18px; }
+textarea { min-height:104px; padding:12px; color:var(--text); background:#10120f; border:1px solid var(--border); border-radius:12px; font:inherit; }
+button { width:max-content; padding:10px 16px; border:0; border-radius:10px; background:var(--accent); color:#13150f; cursor:pointer; font-weight:800; }
+</style>
+<div class="thread">
+  <article class="thread-card">
+    <a class="author" href="{% url 'user_profile' post.author.username %}"><span class="avatar">{{ post.author.username|slice:':1'|upper }}</span><span>{{ post.author.username }}<br><span class="date">{{ post.created_at|timesince }} назад</span></span></a>
+    <div class="content">{{ post.content }}</div>
+    {% if post.media %}<img src="{{ post.media.url }}" style="width:100%;margin-top:14px;border-radius:12px;">{% endif %}
+  </article>
+  {% for reply in replies %}
+    <article class="reply"><a class="author" href="{% url 'user_profile' reply.author.username %}"><span class="avatar">{{ reply.author.username|slice:':1'|upper }}</span><span>{{ reply.author.username }}<br><span class="date">{{ reply.created_at|timesince }} назад</span></span></a><div class="content">{{ reply.content }}</div></article>
+  {% endfor %}
+  {% if user.is_authenticated %}<form class="reply-form" method="post" action="{% url 'create_reply' post.id %}">{% csrf_token %}<textarea name="content" placeholder="Ваш ответ"></textarea><button>Опубликовать</button></form>{% endif %}
+</div>
+{% endblock %}

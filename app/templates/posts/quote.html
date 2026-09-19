@@ -1,0 +1,5 @@
+{% extends 'posts/base.html' %}
+{% block content %}
+<style>.box{max-width:650px;padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:18px}.quote{padding:14px;margin-bottom:15px;border-left:3px solid var(--accent);background:#121410;border-radius:0 12px 12px 0}.box textarea{width:100%;min-height:130px;padding:12px;background:#10120f;color:var(--text);border:1px solid var(--border);border-radius:12px;font:inherit}.box button{margin-top:10px;padding:10px 16px;border:0;border-radius:10px;background:var(--accent);font-weight:800}</style>
+<section class="box"><div class="quote"><strong>{{ post.author.username }}</strong><br>{{ post.content|truncatechars:240 }}</div><form method="post">{% csrf_token %}<textarea name="content" placeholder="Добавьте свою мысль" required></textarea><button>Опубликовать</button></form></section>
+{% endblock %}
