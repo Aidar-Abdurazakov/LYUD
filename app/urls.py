@@ -25,8 +25,12 @@ urlpatterns = [
     path('post/<int:post_id>/repost/', views.repost_view, name='repost'),
     path('post/<int:post_id>/report/', views.report_post_view, name='report_post'),
     path('bookmarks/', views.bookmarks_view, name='bookmarks'),
-    path('studio/', views.studio_view, name='studio'),
-    path('studio/monetization/', views.toggle_monetization_view, name='toggle_monetization'),
+    path('creator/', views.creator_view, name='creator'),
+    path(
+    'creator/monetization/',
+    views.toggle_monetization_view,
+    name='toggle_monetization'
+),
     path('search/', views.search_view, name='search'),
     path('notifications/', views.notifications_view, name='notifications'),
 ]

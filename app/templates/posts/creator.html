@@ -1,0 +1,378 @@
+{% extends 'posts/base.html' %}
+
+{% block content %}
+
+<style>
+
+    .creator-page {
+        width: 100%;
+    }
+
+    .creator-header {
+        margin-bottom: 28px;
+    }
+
+    .creator-title {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: -1px;
+    }
+
+    .creator-subtitle {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 14px;
+    }
+
+    .creator-section-title {
+        margin: 0 0 14px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .creator-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-bottom: 28px;
+    }
+
+    .creator-stat {
+        padding: 20px;
+        background: rgba(25, 27, 24, 0.82);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+    }
+
+    .creator-stat-value {
+        font-size: 27px;
+        font-weight: 800;
+        letter-spacing: -1px;
+    }
+
+    .creator-stat-label {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 13px;
+    }
+
+    .creator-card {
+        padding: 22px;
+        margin-bottom: 18px;
+        background: rgba(25, 27, 24, 0.82);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+    }
+
+    .creator-card-title {
+        margin-bottom: 20px;
+        font-size: 14px;
+        font-weight: 700;
+    }
+
+    .creator-chart {
+        height: 150px;
+        display: flex;
+        align-items: flex-end;
+        gap: 7px;
+        padding-top: 15px;
+    }
+
+    .chart-bar {
+        flex: 1;
+        min-height: 10px;
+        border-radius: 6px 6px 2px 2px;
+        background: var(--accent);
+        opacity: 0.75;
+    }
+
+    .best-post {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .best-post-content {
+        min-width: 0;
+    }
+
+    .best-post-title {
+        font-size: 16px;
+        font-weight: 700;
+    }
+
+    .best-post-meta {
+        margin-top: 7px;
+        color: var(--muted);
+        font-size: 13px;
+    }
+
+    .best-post-views {
+        flex-shrink: 0;
+        font-size: 18px;
+        font-weight: 800;
+        font-family: "JetBrains Mono", monospace;
+    }
+
+    .creator-balance {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .balance-value {
+        font-size: 30px;
+        font-weight: 800;
+    }
+
+    .balance-label {
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 13px;
+    }
+
+    .creator-mobile-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+
+    @media (max-width: 600px) {
+
+        .creator-stats {
+            grid-template-columns: 1fr;
+        }
+
+        .creator-mobile-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .best-post {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+    }
+
+</style>
+
+<div class="creator-page">
+
+    <div class="creator-header">
+
+        <h1 class="creator-title">
+            LYUD Creator
+        </h1>
+
+        <div class="creator-subtitle">
+            Статистика, аудитория и доход твоего контента
+        </div>
+
+    </div>
+
+
+    <div class="creator-section-title">
+        Сегодня
+    </div>
+
+    <div class="creator-stats">
+
+        <div class="creator-stat">
+
+            <div class="creator-stat-value">
+                {{ today_views|default:"0" }}
+            </div>
+
+            <div class="creator-stat-label">
+                Просмотры
+            </div>
+
+        </div>
+
+
+        <div class="creator-stat">
+
+            <div class="creator-stat-value">
+                {{ total_reactions|default:"0" }}
+            </div>
+
+            <div class="creator-stat-label">
+                Реакции
+            </div>
+
+        </div>
+
+
+        <div class="creator-stat">
+
+            <div class="creator-stat-value">
+                {{ total_replies|default:"0" }}
+            </div>
+
+            <div class="creator-stat-label">
+                Ответы
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="creator-card">
+
+        <div class="creator-card-title">
+            Охват
+        </div>
+
+        <div class="creator-stat-value">
+            {{ reach|default:"0" }}
+        </div>
+
+        <div class="creator-stat-label">
+            Уникальные просмотры
+        </div>
+
+        <div class="creator-chart">
+
+            <div class="chart-bar" style="height: 25%;"></div>
+            <div class="chart-bar" style="height: 38%;"></div>
+            <div class="chart-bar" style="height: 32%;"></div>
+            <div class="chart-bar" style="height: 54%;"></div>
+            <div class="chart-bar" style="height: 48%;"></div>
+            <div class="chart-bar" style="height: 70%;"></div>
+            <div class="chart-bar" style="height: 58%;"></div>
+            <div class="chart-bar" style="height: 82%;"></div>
+            <div class="chart-bar" style="height: 65%;"></div>
+            <div class="chart-bar" style="height: 92%;"></div>
+
+        </div>
+
+    </div>
+
+
+    {% if best_post %}
+
+        <div class="creator-card">
+
+            <div class="creator-card-title">
+                Лучший пост
+            </div>
+
+            <div class="best-post">
+
+                <div class="best-post-content">
+
+                    <div class="best-post-title">
+
+                        {% if best_post.post.content %}
+
+                            {{ best_post.post.content|truncatechars:80 }}
+
+                        {% else %}
+
+                            Публикация без текста
+
+                        {% endif %}
+
+                    </div>
+
+                    <div class="best-post-meta">
+
+                        {{ best_post.post.created_at|date:"d.m.Y H:i" }}
+
+                    </div>
+
+                </div>
+
+                <div class="best-post-views">
+
+                    {{ best_post.views }} views
+
+                </div>
+
+            </div>
+
+        </div>
+
+    {% endif %}
+
+
+    <div class="creator-section-title">
+        Аккаунт
+    </div>
+
+    <div class="creator-mobile-grid">
+
+        <div class="creator-card">
+
+            <div class="creator-stat-value">
+                {{ posts_count }}
+            </div>
+
+            <div class="creator-stat-label">
+                Публикации
+            </div>
+
+        </div>
+
+
+        <div class="creator-card">
+
+            <div class="creator-stat-value">
+                {{ total_views }}
+            </div>
+
+            <div class="creator-stat-label">
+                Всего просмотров
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="creator-card">
+
+        <div class="creator-card-title">
+            Баланс
+        </div>
+
+        <div class="creator-balance">
+
+            <div>
+
+                <div class="balance-value">
+                    ${{ creator.balance }}
+                </div>
+
+                <div class="balance-label">
+                    Доступный баланс
+                </div>
+
+            </div>
+
+            <div>
+
+                <div class="balance-value">
+                    ${{ creator.total_earnings }}
+                </div>
+
+                <div class="balance-label">
+                    Всего заработано
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

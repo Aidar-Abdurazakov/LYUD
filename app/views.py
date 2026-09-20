@@ -6,8 +6,21 @@ from django.db.models import Count, Q
 from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
-
-from .models import Block, Bookmark, Comment, CreatorProfile, Follow, Message, Notification, Post, Profile, Report, Repost
+from django.utils import timezone
+from .models import (
+    Block,
+    Bookmark,
+    Comment,
+    CreatorProfile,
+    Follow,
+    Message,
+    Notification,
+    Post,
+    PostView,
+    Profile,
+    Report,
+    Repost,
+)
 
 
 def _is_blocked(first, second):
@@ -129,11 +142,49 @@ def create_post_view(request):
 
 
 def post_detail_view(request, post_id):
-    post = get_object_or_404(Post.objects.select_related('author', 'author__profile', 'quote_post', 'quote_post__author'), id=post_id)
-    root = post.parent or post
-    replies = Post.objects.filter(parent=root).select_related('author', 'author__profile').prefetch_related('likes').order_by('created_at')
-    return render(request, 'posts/thread.html', {'post': root, 'replies': replies})
 
+    post = get_object_or_404(
+        Post.objects.select_related(
+            'author',
+            'author__profile',
+            'quote_post',
+            'quote_post__author'
+        ),
+        id=post_id
+    )
+
+    root = post.parent or post
+
+    # Создаём session_key для неавторизованных пользователей
+    if not request.session.session_key:
+        request.session.create()
+
+    session_key = request.session.session_key
+
+    # Записываем просмотр
+    PostView.objects.create(
+        post=root,
+        viewer=request.user if request.user.is_authenticated else None,
+        session_key=session_key
+    )
+
+    replies = Post.objects.filter(
+        parent=root
+    ).select_related(
+        'author',
+        'author__profile'
+    ).prefetch_related(
+        'likes'
+    ).order_by('created_at')
+
+    return render(
+        request,
+        'posts/thread.html',
+        {
+            'post': root,
+            'replies': replies
+        }
+    )
 
 @login_required
 @require_POST
@@ -232,14 +283,96 @@ def report_post_view(request, post_id):
 
 
 @login_required
-def studio_view(request):
+def creator_view(request):
     creator, _ = CreatorProfile.objects.get_or_create(user=request.user)
-    posts = Post.objects.filter(author=request.user, parent__isnull=True).prefetch_related('likes')
-    return render(request, 'posts/studio.html', {
-        'creator': creator, 'posts_count': posts.count(),
-        'total_likes': sum(post.likes.count() for post in posts),
-        'total_replies': Post.objects.filter(parent__author=request.user).count(),
-    })
+
+    posts = Post.objects.filter(
+        author=request.user,
+        parent__isnull=True
+    ).prefetch_related('likes')
+
+    today = timezone.now().date()
+
+    # Посты автора
+    post_ids = posts.values_list('id', flat=True)
+
+    # Просмотры за сегодня
+    today_views = PostView.objects.filter(
+        post_id__in=post_ids,
+        created_at__date=today
+    ).count()
+
+    # Все просмотры
+    total_views = PostView.objects.filter(
+        post_id__in=post_ids
+    ).count()
+
+    # Уникальный охват
+    reach = PostView.objects.filter(
+        post_id__in=post_ids
+    ).values(
+        'viewer',
+        'session_key'
+    ).distinct().count()
+
+    # Лайки
+    total_likes = sum(
+        post.likes.count()
+        for post in posts
+    )
+
+    # Ответы через модель Post
+    total_replies = Post.objects.filter(
+        parent__author=request.user
+    ).count()
+
+    # Комментарии
+    total_comments = Comment.objects.filter(
+        post__author=request.user
+    ).count()
+
+    # Все реакции
+    total_reactions = total_likes + total_comments
+
+    # Лучший пост по количеству просмотров
+    best_post = None
+
+    for post in posts:
+        views_count = post.views.count()
+
+        if best_post is None or views_count > best_post['views']:
+            best_post = {
+                'post': post,
+                'views': views_count
+            }
+
+    context = {
+        'creator': creator,
+
+        'posts_count': posts.count(),
+
+        'today_views': today_views,
+
+        'total_views': total_views,
+
+        'reach': reach,
+
+        'total_likes': total_likes,
+
+        'total_comments': total_comments,
+
+        'total_replies': total_replies,
+
+        'total_reactions': total_reactions,
+
+        'best_post': best_post,
+    }
+
+    return render(
+        request,
+        'posts/creator.html',
+        context
+    )
 
 
 @login_required
@@ -248,7 +381,7 @@ def toggle_monetization_view(request):
     creator, _ = CreatorProfile.objects.get_or_create(user=request.user)
     creator.monetization_enabled = not creator.monetization_enabled
     creator.save(update_fields=['monetization_enabled'])
-    return redirect('studio')
+    return redirect('creator')
 
 
 def search_view(request):
