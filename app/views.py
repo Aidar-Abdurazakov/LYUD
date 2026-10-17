@@ -7,6 +7,10 @@ from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from django.utils import timezone
+
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, redirect, render
+
 from .models import (
     Block,
     Bookmark,
@@ -31,6 +35,7 @@ def _back(request, fallback='feed'):
     return redirect(request.META.get('HTTP_REFERER') or fallback)
 
 
+@login_required
 def feed_view(request):
     tab = request.GET.get('tab', 'for-you')
     posts = Post.objects.filter(parent__isnull=True).select_related(
@@ -121,7 +126,7 @@ def direct_view(request, username=None):
         messages = Message.objects.filter(Q(sender=request.user, recipient=active) | Q(sender=active, recipient=request.user)).order_by('created_at')
     return render(request, 'posts/direct.html', {'dialog_users': users, 'active_dialog_user': active, 'messages_list': messages})
 
-
+@login_required
 def reels_view(request):
     posts = Post.objects.filter(post_type='reels', parent__isnull=True).select_related('author').order_by('-created_at')
     return render(request, 'posts/reels.html', {'posts': posts})
@@ -140,7 +145,7 @@ def create_post_view(request):
         return redirect('feed')
     return render(request, 'posts/create.html')
 
-
+@login_required
 def post_detail_view(request, post_id):
 
     post = get_object_or_404(
@@ -155,13 +160,11 @@ def post_detail_view(request, post_id):
 
     root = post.parent or post
 
-    # Создаём session_key для неавторизованных пользователей
     if not request.session.session_key:
         request.session.create()
 
     session_key = request.session.session_key
 
-    # Записываем просмотр
     PostView.objects.create(
         post=root,
         viewer=request.user if request.user.is_authenticated else None,
@@ -293,21 +296,17 @@ def creator_view(request):
 
     today = timezone.now().date()
 
-    # Посты автора
     post_ids = posts.values_list('id', flat=True)
 
-    # Просмотры за сегодня
     today_views = PostView.objects.filter(
         post_id__in=post_ids,
         created_at__date=today
     ).count()
 
-    # Все просмотры
     total_views = PostView.objects.filter(
         post_id__in=post_ids
     ).count()
 
-    # Уникальный охват
     reach = PostView.objects.filter(
         post_id__in=post_ids
     ).values(
@@ -315,26 +314,26 @@ def creator_view(request):
         'session_key'
     ).distinct().count()
 
-    # Лайки
+  
     total_likes = sum(
         post.likes.count()
         for post in posts
     )
 
-    # Ответы через модель Post
+    
     total_replies = Post.objects.filter(
         parent__author=request.user
     ).count()
 
-    # Комментарии
+   
     total_comments = Comment.objects.filter(
         post__author=request.user
     ).count()
 
-    # Все реакции
+    
     total_reactions = total_likes + total_comments
 
-    # Лучший пост по количеству просмотров
+  
     best_post = None
 
     for post in posts:
@@ -383,7 +382,7 @@ def toggle_monetization_view(request):
     creator.save(update_fields=['monetization_enabled'])
     return redirect('creator')
 
-
+@login_required
 def search_view(request):
     query = request.GET.get('q', '').strip()
     users = User.objects.none()
@@ -402,11 +401,76 @@ def notifications_view(request):
 
 
 def login_view(request):
-    form = AuthenticationForm(request, data=request.POST or None)
-    if request.method == 'POST' and form.is_valid():
-        login(request, form.get_user())
-        return redirect(request.GET.get('next') or 'feed')
-    return render(request, 'posts/login.html', {'form': form})
+    if request.method == 'POST':
+
+        action = request.POST.get('action')
+
+        # ВХОД
+        if action == 'login':
+            form = AuthenticationForm(request, data=request.POST)
+
+            if form.is_valid():
+                login(request, form.get_user())
+                return redirect(request.GET.get('next') or 'feed')
+
+            return render(request, 'posts/login.html', {
+                'form': form,
+                'active_tab': 'login',
+            })
+
+        
+        elif action == 'register':
+            username = request.POST.get('username', '').strip()
+            password = request.POST.get('password', '')
+            password_confirm = request.POST.get('password_confirm', '')
+
+            if password != password_confirm:
+                return render(request, 'posts/login.html', {
+                    'error': 'Пароли не совпадают.',
+                    'active_tab': 'register',
+                })
+
+            if User.objects.filter(username=username).exists():
+                return render(request, 'posts/login.html', {
+                    'error': 'Это имя пользователя уже занято.',
+                    'active_tab': 'register',
+                })
+
+            if not username:
+                return render(request, 'posts/login.html', {
+                    'error': 'Введите имя пользователя.',
+                    'active_tab': 'register',
+                })
+
+            if len(password) < 8:
+                return render(request, 'posts/login.html', {
+                    'error': 'Пароль должен содержать минимум 8 символов.',
+                    'active_tab': 'register',
+                })
+
+            user = User.objects.create_user(
+                username=username,
+                password=password
+            )
+
+            Profile.objects.get_or_create(user=user)
+            CreatorProfile.objects.get_or_create(user=user)
+
+            login(request, user)
+
+            return redirect('feed')
+
+    return render(request, 'posts/login.html', {
+        'active_tab': 'login'
+    })
+
+
+# def login_view(request):
+#     form = AuthenticationForm(request, data=request.POST or None)
+#     if request.method == 'POST' and form.is_valid():
+#         login(request, form.get_user())
+#         return redirect(request.GET.get('next') or 'feed')
+#     return render(request, 'posts/login.html', {'form': form})
 
 
 def register_view(request):

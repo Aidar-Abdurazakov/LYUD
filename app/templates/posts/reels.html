@@ -5,8 +5,14 @@
     {% for post in posts %}
         <div class="reel-card" style="position: relative; width: 100%; height: 75vh; max-height: 700px; background: #000; border-radius: 16px; overflow: hidden; border: 1px solid var(--border-color); box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
             
-            <!-- Видео -->
-            <video src="{{ post.media.url }}" loop autoplay muted playsinline style="width: 100%; height: 100%; object-fit: cover; cursor: pointer;" onclick="togglePlay(this)"></video>
+            <!-- Безопасная проверка наличия файла через post.media.name -->
+            {% if post.media and post.media.name %}
+                <video src="{{ post.media.url }}" loop autoplay muted playsinline style="width: 100%; height: 100%; object-fit: cover; cursor: pointer;" onclick="togglePlay(this)"></video>
+            {% else %}
+                <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #fff; font-size: 14px;">
+                    Нет видеофайла
+                </div>
+            {% endif %}
 
             <!-- Оверлей снизу (Автор и описание) -->
             <div style="position: absolute; bottom: 0; left: 0; right: 60px; padding: 20px 16px; background: linear-gradient(transparent, rgba(0,0,0,0.85)); z-index: 2; pointer-events: none;">

@@ -10,7 +10,13 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
+import os
+from datetime import timedelta
 from pathlib import Path
+from dotenv import load_dotenv  # <--- 1. Импортируем
+
+# Загружаем переменные из файла .env, если он есть
+load_dotenv()  # <--- 2. Вызываем загрузку
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,12 +26,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-m-5(c#pw&g@!%ehqmdt1j*c*8*8$a*58*ap3)@--avx48ltoy&'
+# Для продакшена задайте свой ключ в переменной окружения DJANGO_SECRET_KEY
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-!@#%$^&*()_+1234567890qwertyuiopasdfghjklzxcvbnm'
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('1', 'true', 'yes')
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',') if h.strip()]
 
 
 # Application definition
@@ -37,6 +47,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # REST API для блога
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'drf_spectacular',
+    'blog',
+
     'app',
 ]
 
@@ -52,11 +69,6 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'LYUD.urls'
 
-import os
-from pathlib import Path
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -71,7 +83,7 @@ TEMPLATES = [
             ],
         },
     },
-]  # Квадратная скобка закрывает TEMPLATES = [...]
+]
 
 WSGI_APPLICATION = 'LYUD.wsgi.application'
 
@@ -79,12 +91,24 @@ WSGI_APPLICATION = 'LYUD.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+if os.environ.get('POSTGRES_DB') or os.environ.get('DB_NAME'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('POSTGRES_DB') or os.environ.get('DB_NAME'),
+            'USER': os.environ.get('POSTGRES_USER') or os.environ.get('DB_USER'),
+            'PASSWORD': os.environ.get('POSTGRES_PASSWORD') or os.environ.get('DB_PASSWORD'),
+            'HOST': os.environ.get('DB_HOST', 'localhost'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -128,11 +152,46 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Настройки перенаправления для авторизации
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'feed'
 LOGOUT_REDIRECT_URL = 'login'
 
-import os
-
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+
+# ---------------------------------------------------------------------------
+# REST API блога (Django REST Framework + JWT + Swagger)
+# ---------------------------------------------------------------------------
+
+REST_FRAMEWORK = {
+    # Только JWT: API не зависит от сессий сайта, поэтому CSRF для него не нужен
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    # Гостям только чтение, изменять может авторизованный пользователь
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ),
+    'DEFAULT_PAGINATION_CLASS': 'blog.pagination.StandardPagination',
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
+
+# Документация OpenAPI: /api/docs/ (Swagger), /api/redoc/ (ReDoc), /api/schema/ (YAML)
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Blog API',
+    'DESCRIPTION': 'REST API простого блога: посты, комментарии, JWT-аутентификация.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SCHEMA_PATH_PREFIX': r'/api/v1',
+}
+
+# True: новые комментарии скрыты, пока админ не одобрит их в админке (is_approved)
+BLOG_COMMENTS_REQUIRE_APPROVAL = os.environ.get('BLOG_COMMENTS_REQUIRE_APPROVAL', 'False').lower() in ('1', 'true', 'yes')
